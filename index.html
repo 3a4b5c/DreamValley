@@ -15,8 +15,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Use min-height 100vh to ensure it covers the screen and centers vertically */
-            min-height: 100vh;
+            /* DÜZƏLİŞ: Daha dəqiq mərkəzləşdirmə üçün height 100vh istifadə edildi */
+            height: 100vh; 
             margin: 0;
             color: #fff;
             text-shadow: 2px 2px 4px #000;
@@ -30,13 +30,18 @@
             align-items: center;
             justify-content: center;
             gap: 20px;
-            /* Added 4vh padding top/bottom to ensure minimum large vertical distance */
-            padding: 4vh 10px; 
+            
+            /* Use fixed padding for predictability */
+            padding: 20px; 
             box-sizing: border-box;
-            /* Ensure the container is not clipped and keeps the game centered */
-            max-height: 100vh; 
-            max-width: 90%;
+            
+            /* Allow content to determine size, scaling will handle fitting */
+            max-width: 95%; 
             margin: auto;
+            
+            /* Added transition for smooth scaling effect */
+            transition: transform 0.3s ease-out;
+            transform-origin: center center; /* Ensure scaling is centered */
         }
 
         .image-box {
@@ -78,8 +83,7 @@
             background-size: cover;
             background-position: center;
             border-radius: 10px;
-            /* Set max-width to 100% for general responsiveness, but JS will set fixed size */
-            max-width: 100%; 
+            /* Kanvasın CSS-də uzadılmasının qarşısını almaq üçün daxili ölçüləri JS-də təyin olunur */
         }
         
         @keyframes shake {
@@ -324,6 +328,7 @@
         const messageButton = document.getElementById('messageButton');
         const scoreElement = document.getElementById('score');
         const levelElement = document.getElementById('level');
+        const mainContainer = document.querySelector('.main-container');
 
         // Mobile controls
         const leftButton = document.getElementById('leftButton');
@@ -335,7 +340,12 @@
         // The tile size is reduced by 10% (30 * 0.9 = 27)
         let TILE_SIZE = 27; 
         const COLUMNS = 10;
-        const ROWS = 20;
+        const ROWS = 20; // Daxili oyun məntiqi üçün sətirlərin sayı (10x20 standart board)
+        
+        // Fiqurun yuxarıdan gəlmə məsafəsini uzatmaq üçün əlavə vizual sətirlər
+        const VISUAL_ROWS = 25; // Kanvasın ümumi hündürlüyü (20 + 5)
+        const Y_OFFSET_ROWS = VISUAL_ROWS - ROWS; // Yuxarıda boş saxlanılacaq sətirlərin sayı (5)
+
 
         let board = Array.from({ length: ROWS }, () => Array(COLUMNS).fill(null));
         let score = 0;
@@ -451,24 +461,75 @@
         function resizeGame() {
             // Set the main game board size based on fixed TILE_SIZE
             canvas.width = TILE_SIZE * COLUMNS;
-            canvas.height = TILE_SIZE * ROWS;
+            // Kanvasın hündürlüyünü vizual sətirlərin sayına görə artırın
+            canvas.height = TILE_SIZE * VISUAL_ROWS;
+
+            // DÜZƏLİŞ: Kanvas elementinin CSS ölçülərini daxili ölçüsü ilə eyniləşdirərək
+            // fiqurların deformasiyasının qarşısını almaq üçün aspect ratio-nu sabitləyir.
+            canvas.style.width = canvas.width + 'px';
+            canvas.style.height = canvas.height + 'px';
 
             // Adjust Next/Hold canvas sizes proportionally
             nextCanvas.width = TILE_SIZE * 4;
             nextCanvas.height = TILE_SIZE * 4;
+            // DÜZƏLİŞ: Next kanvasın da CSS ölçülərini sabitləmək.
+            nextCanvas.style.width = nextCanvas.width + 'px';
+            nextCanvas.style.height = nextCanvas.height + 'px';
+
             holdCanvas.width = TILE_SIZE * 4;
             holdCanvas.height = TILE_SIZE * 4;
+            // DÜZƏLİŞ: Hold kanvasın da CSS ölçülərini sabitləmək.
+            holdCanvas.style.width = holdCanvas.width + 'px';
+            holdCanvas.style.height = holdCanvas.height + 'px';
         }
+
+        // --- Yeni Funksiya: Oyunun Kontynerini Ekrana Uyğun Miqyaslamaq (Scaling) ---
+        function adjustScale() {
+            // Oyunun ölçüsünü götürmək üçün transformasiyanı müvəqqəti sıfırlayın
+            mainContainer.style.transform = 'scale(1)';
+            
+            // Kontent və pəncərə ölçülərini götürün
+            const contentWidth = mainContainer.offsetWidth;
+            const contentHeight = mainContainer.offsetHeight;
+            
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // Təhlükəsizlik marjası (scroll çubuğunun yaranmaması üçün 40px)
+            const safetyMargin = 40; 
+            const availableWidth = viewportWidth - safetyMargin;
+            const availableHeight = viewportHeight - safetyMargin;
+
+            let scale = 1;
+            
+            // Əgər kontent pəncərədən böyükdürsə, miqyası hesablayın
+            if (contentWidth > availableWidth || contentHeight > availableHeight) {
+                const scaleX = availableWidth / contentWidth;
+                const scaleY = availableHeight / contentHeight;
+                // En və hündürlükdən ən kiçik miqyası seçin
+                scale = Math.min(scaleX, scaleY);
+            }
+            
+            // Miqyası tətbiq edin
+            mainContainer.style.transform = `scale(${scale})`;
+        }
+        // --- Yeni Funksiya Sonu ---
 
         // Function: Selects a random shape
         function getRandomShape() {
             const shapeKeys = Object.keys(shapes);
             const randomKey = shapeKeys[Math.floor(Math.random() * shapeKeys.length)];
             const newShape = shapes[randomKey];
+
+            // DÜZƏLİŞ: Fiqurların Kanvasın yuxarı kənarından (yəni görünməyən ərazidən)
+            // gəlməsi üçün başlanğıc y pozisiyasını mənfi dəyərə (-6) təyin edin.
+            // Bu, fiqurun Kanvasın vizual kənarından bir qədər yuxarıda yaranmasını təmin edir.
+            const startY = -6; 
+            
             return {
                 ...newShape,
                 x: Math.floor(COLUMNS / 2) - Math.floor(newShape.shape[0].length / 2),
-                y: 0
+                y: startY // YENİ BAŞLANĞIÇ Y pozisiyası
             };
         }
 
@@ -478,12 +539,16 @@
             for (let row = 0; row < ROWS; row++) {
                 for (let col = 0; col < COLUMNS; col++) {
                     if (board[row][col]) {
+                        // Fiqurları Y_OFFSET_ROWS qədər aşağı sürüşdürərək çəkirik
+                        const drawY = (row + Y_OFFSET_ROWS) * TILE_SIZE;
+                        const drawX = col * TILE_SIZE;
+
                         // Draw with shadow
                         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
                         ctx.shadowBlur = 5;
                         ctx.shadowOffsetX = 3;
                         ctx.shadowOffsetY = 3;
-                        ctx.drawImage(loadedImages[board[row][col]], col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        ctx.drawImage(loadedImages[board[row][col]], drawX, drawY, TILE_SIZE, TILE_SIZE);
                         ctx.shadowColor = 'rgba(0, 0, 0, 0)';
                         ctx.shadowBlur = 0;
                         ctx.shadowOffsetX = 0;
@@ -498,12 +563,16 @@
             shape.shape.forEach((row, rowIndex) => {
                 row.forEach((value, colIndex) => {
                     if (value) {
+                        const drawX = (shape.x + colIndex) * TILE_SIZE;
+                        // Fiqurun cari Y pozisiyasına offset-i əlavə edirik
+                        const drawY = (shape.y + rowIndex + Y_OFFSET_ROWS) * TILE_SIZE; 
+                        
                         // Draw with shadow
                         context.shadowColor = 'rgba(0, 0, 0, 0.5)';
                         context.shadowBlur = 5;
                         context.shadowOffsetX = 3;
                         context.shadowOffsetY = 3;
-                        context.drawImage(loadedImages[shape.color], (shape.x + colIndex) * TILE_SIZE, (shape.y + rowIndex) * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        context.drawImage(loadedImages[shape.color], drawX, drawY, TILE_SIZE, TILE_SIZE);
                         context.shadowColor = 'rgba(0, 0, 0, 0)';
                         context.shadowBlur = 0;
                         context.shadowOffsetX = 0;
@@ -672,7 +741,7 @@
                 currentShape = holdShape;
                 // Reset held piece position
                 currentShape.x = Math.floor(COLUMNS / 2) - Math.floor(currentShape.shape[0].length / 2);
-                currentShape.y = 0;
+                currentShape.y = -6; // Başlanğıc Y pozisiyasını bura da tətbiq edin
                 holdShape = temp;
             } else {
                 holdShape = currentShape;
@@ -886,12 +955,14 @@
             }
         });
         
-        // --- Game size is fixed and centered, so no runtime resizing is needed. ---
+        // --- Game size initialization ---
+
+        // Miqyaslama funksiyasını pəncərənin ölçüsü dəyişəndə yenidən çağırın
+        window.addEventListener('resize', adjustScale);
 
         window.onload = async function() {
             await loadImages();
-            // Call resizeGame once to set the fixed dimensions (300px x 600px game board at TILE_SIZE=30)
-            // Now it is smaller (270px x 540px game board at TILE_SIZE=27)
+            // Kanvas ölçülərini təyin edin
             resizeGame(); 
             currentShape = getRandomShape();
             nextShape = getRandomShape();
@@ -899,6 +970,9 @@
             drawHoldShape();
             drawBoard();
             
+            // Miqyaslamanı tətbiq edin ki, oyun ekrana sığsın
+            adjustScale(); 
+
             // Show initial message
             messageTitle.innerText = "Tetris Game";
             messageText.innerText = "Click 'Start' to begin.";
