@@ -122,9 +122,10 @@
             font-weight: bold;
         }
 
+        /* Next/Hold canvases size is now driven by JS TILE_SIZE, but we keep max size for mobile layout */
         .info-box canvas {
-            width: 120px;
-            height: 120px;
+            max-width: 120px;
+            max-height: 120px;
             background-color: transparent;
             border-radius: 5px;
             display: flex;
@@ -331,8 +332,8 @@
         const downButton = document.getElementById('downButton');
         const hardDropButton = document.getElementById('hardDropButton');
 
-        // Sabit plitə ölçüsü (30px) oyunu kiçik və ekranın mərkəzində saxlayır (istəyinizə uyğun olaraq).
-        let TILE_SIZE = 30; 
+        // The tile size is reduced by 10% (30 * 0.9 = 27)
+        let TILE_SIZE = 27; 
         const COLUMNS = 10;
         const ROWS = 20;
 
@@ -446,7 +447,7 @@
             }
         };
         
-        // Function: Initializes game size to a fixed value. 
+        // Function: Initializes game size based on the new TILE_SIZE (27)
         function resizeGame() {
             // Set the main game board size based on fixed TILE_SIZE
             canvas.width = TILE_SIZE * COLUMNS;
@@ -889,7 +890,8 @@
 
         window.onload = async function() {
             await loadImages();
-            // Call resizeGame once to set the fixed dimensions (300px x 600px game board)
+            // Call resizeGame once to set the fixed dimensions (300px x 600px game board at TILE_SIZE=30)
+            // Now it is smaller (270px x 540px game board at TILE_SIZE=27)
             resizeGame(); 
             currentShape = getRandomShape();
             nextShape = getRandomShape();
