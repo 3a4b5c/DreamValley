@@ -7,6 +7,7 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
+            /* Using a static background image for aesthetics */
             background-image: url('https://i.ibb.co/Q7qPpfm3/16x9-bg.png');
             background-size: cover;
             background-repeat: no-repeat;
@@ -14,10 +15,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            /* Use min-height 100vh to ensure it covers the screen and centers vertically */
+            min-height: 100vh;
             margin: 0;
             color: #fff;
             text-shadow: 2px 2px 4px #000;
+            /* Hide scrollbars */
+            overflow: hidden; 
         }
 
         .main-container {
@@ -26,12 +30,18 @@
             align-items: center;
             justify-content: center;
             gap: 20px;
-            max-height: 95vh;
-            overflow-y: auto;
+            /* Added 4vh padding top/bottom to ensure minimum large vertical distance */
+            padding: 4vh 10px; 
+            box-sizing: border-box;
+            /* Ensure the container is not clipped and keeps the game centered */
+            max-height: 100vh; 
+            max-width: 90%;
+            margin: auto;
         }
 
         .image-box {
-            width: 400px; /* Oyun sahəsinin eni ilə eyni ölçü */
+            width: 100%;
+            max-width: 400px;
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(5px);
             padding: 10px;
@@ -56,6 +66,8 @@
             border-radius: 15px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
             border: 2px solid #fff;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         #gameCanvas {
@@ -66,6 +78,8 @@
             background-size: cover;
             background-position: center;
             border-radius: 10px;
+            /* Set max-width to 100% for general responsiveness, but JS will set fixed size */
+            max-width: 100%; 
         }
         
         @keyframes shake {
@@ -124,7 +138,7 @@
             flex-direction: column;
             gap: 10px;
         }
-
+        
         .game-controls button {
             color: white;
             padding: 10px 20px;
@@ -158,7 +172,7 @@
 
 
         .message-box {
-            position: absolute;
+            position: fixed; /* Use fixed positioning to always show in the center */
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -168,6 +182,7 @@
             border-radius: 15px;
             text-align: center;
             z-index: 100;
+            max-width: 90%;
         }
 
         .hidden {
@@ -186,10 +201,56 @@
             margin-top: 20px;
         }
 
+        .mobile-controls {
+            display: none;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 400px;
+            margin-top: 20px;
+        }
+
+        .mobile-controls button {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 15px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            font-size: 1.2em;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
         @media (max-width: 768px) {
             .game-container {
                 flex-direction: column;
                 align-items: center;
+            }
+
+            .image-box {
+                display: none; /* Hide image on mobile */
+            }
+
+            .info-panel {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+            }
+
+            .info-box {
+                margin-bottom: 0;
+            }
+            
+            .game-controls {
+                display: none;
+            }
+
+            .mobile-controls {
+                display: flex;
             }
         }
     </style>
@@ -197,12 +258,13 @@
 <body>
 
     <div class="main-container">
+        <!-- Image that will appear at the top on large monitors -->
         <div class="image-box">
             <img src="https://i.ibb.co/cc8Dspxg/Dream-Valley.png" alt="Dream Valley">
         </div>
 
         <div class="game-container">
-            <canvas id="gameCanvas" width="300" height="600"></canvas>
+            <canvas id="gameCanvas"></canvas>
             <div class="info-panel">
                 <div class="info-box">
                     <h2>Score</h2>
@@ -214,23 +276,35 @@
                 </div>
                 <div class="info-box">
                     <h2>Next</h2>
-                    <canvas id="nextShapeCanvas" width="120" height="120"></canvas>
+                    <canvas id="nextShapeCanvas"></canvas>
                 </div>
                 <div class="info-box">
                     <h2>Hold</h2>
-                    <canvas id="holdShapeCanvas" width="120" height="120"></canvas>
+                    <canvas id="holdShapeCanvas"></canvas>
                 </div>
                 <div class="game-controls">
                     <button id="startButton">Start</button>
                     <button id="pauseButton">Pause</button>
                 </div>
             </div>
+            
+        </div>
+        
+        <!-- Mobile controls -->
+        <div class="mobile-controls">
+            <button id="leftButton">←</button>
+            <button id="rightButton">→</button>
+            <button id="rotateButton">↻</button>
+            <button id="downButton">↓</button>
+            <button id="hardDropButton">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-down"><path d="m7 13 5 5 5-5"/><path d="m7 6 5 5 5-5"/></svg>
+            </button>
         </div>
     </div>
 
     <div id="messageBox" class="message-box hidden">
         <h2 id="messageTitle">Game Over</h2>
-        <p id="messageText">Sorry, you lost the game.</p>
+        <p id="messageText">You lost. Sorry.</p>
         <button id="messageButton" class="modal-button">Restart</button>
     </div>
 
@@ -250,7 +324,15 @@
         const scoreElement = document.getElementById('score');
         const levelElement = document.getElementById('level');
 
-        const TILE_SIZE = 30;
+        // Mobile controls
+        const leftButton = document.getElementById('leftButton');
+        const rightButton = document.getElementById('rightButton');
+        const rotateButton = document.getElementById('rotateButton');
+        const downButton = document.getElementById('downButton');
+        const hardDropButton = document.getElementById('hardDropButton');
+
+        // Sabit plitə ölçüsü (30px) oyunu kiçik və ekranın mərkəzində saxlayır (istəyinizə uyğun olaraq).
+        let TILE_SIZE = 30; 
         const COLUMNS = 10;
         const ROWS = 20;
 
@@ -268,8 +350,8 @@
 
         let repeatTimeoutId = null;
         let repeatIntervalId = null;
-        const REPEAT_DELAY = 150; // milliseconds before repeat starts
-        const REPEAT_INTERVAL = 50; // milliseconds between repeats
+        const REPEAT_DELAY = 150; // Delay before starting repeat
+        const REPEAT_INTERVAL = 50; // Interval between repeats
 
         const images = {
             'I': 'https://i.ibb.co/twKtk80T/blue-tetris.png',
@@ -283,7 +365,7 @@
 
         const loadedImages = {};
 
-        // Funksiya: Bütün şəkilləri yükləyir
+        // Function: Load all images
         function loadImages() {
             return new Promise(resolve => {
                 const imagePromises = Object.keys(images).map(key => {
@@ -295,7 +377,6 @@
                         };
                         img.onerror = () => {
                             console.error(`Failed to load image: ${images[key]}`);
-                            // Şəkil yüklənmədikdə rəngdən istifadə etmək üçün default dəyər
                             loadedImages[key] = null;
                             imgResolve();
                         };
@@ -364,8 +445,21 @@
                 color: 'L'
             }
         };
+        
+        // Function: Initializes game size to a fixed value. 
+        function resizeGame() {
+            // Set the main game board size based on fixed TILE_SIZE
+            canvas.width = TILE_SIZE * COLUMNS;
+            canvas.height = TILE_SIZE * ROWS;
 
-        // Funksiya: Təsadüfi bir fiqur seçir
+            // Adjust Next/Hold canvas sizes proportionally
+            nextCanvas.width = TILE_SIZE * 4;
+            nextCanvas.height = TILE_SIZE * 4;
+            holdCanvas.width = TILE_SIZE * 4;
+            holdCanvas.height = TILE_SIZE * 4;
+        }
+
+        // Function: Selects a random shape
         function getRandomShape() {
             const shapeKeys = Object.keys(shapes);
             const randomKey = shapeKeys[Math.floor(Math.random() * shapeKeys.length)];
@@ -377,13 +471,13 @@
             };
         }
 
-        // Funksiya: Kanvası təmizləyir və oyun sahəsini çəkir
+        // Function: Draws the board
         function drawBoard() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             for (let row = 0; row < ROWS; row++) {
                 for (let col = 0; col < COLUMNS; col++) {
                     if (board[row][col]) {
-                        // Fiquru çəkir (kölgə effekti ilə)
+                        // Draw with shadow
                         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
                         ctx.shadowBlur = 5;
                         ctx.shadowOffsetX = 3;
@@ -398,18 +492,17 @@
             }
         }
         
-        // Funksiya: Fiqurları çəkir
+        // Function: Draws the current shape
         function drawShape(shape, context) {
             shape.shape.forEach((row, rowIndex) => {
                 row.forEach((value, colIndex) => {
                     if (value) {
-                        // Kölgə effekti əlavə edir
+                        // Draw with shadow
                         context.shadowColor = 'rgba(0, 0, 0, 0.5)';
                         context.shadowBlur = 5;
                         context.shadowOffsetX = 3;
                         context.shadowOffsetY = 3;
                         context.drawImage(loadedImages[shape.color], (shape.x + colIndex) * TILE_SIZE, (shape.y + rowIndex) * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                        // Kölgə parametrlərini sıfırlayır
                         context.shadowColor = 'rgba(0, 0, 0, 0)';
                         context.shadowBlur = 0;
                         context.shadowOffsetX = 0;
@@ -419,12 +512,13 @@
             });
         }
 
-        // Funksiya: Növbəti fiquru çəkir
+        // Function: Draws the next shape
         function drawNextShape() {
             nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
             if (nextShape) {
                 const shape = nextShape.shape;
                 const size = shape.length;
+                // Center the shape
                 const xOffset = (nextCanvas.width - size * TILE_SIZE) / 2;
                 const yOffset = (nextCanvas.height - size * TILE_SIZE) / 2;
                 shape.forEach((row, rowIndex) => {
@@ -437,12 +531,13 @@
             }
         }
         
-        // Funksiya: Saxlanılan fiquru çəkir
+        // Function: Draws the held shape
         function drawHoldShape() {
             holdCtx.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
             if (holdShape) {
                 const shape = holdShape.shape;
                 const size = shape.length;
+                // Center the shape
                 const xOffset = (holdCanvas.width - size * TILE_SIZE) / 2;
                 const yOffset = (holdCanvas.height - size * TILE_SIZE) / 2;
                 shape.forEach((row, rowIndex) => {
@@ -455,7 +550,7 @@
             }
         }
 
-        // Funksiya: Hərəkətin etibarlılığını yoxlayır
+        // Function: Checks if a move is valid
         function isValidMove(shape, offsetX, offsetY) {
             for (let row = 0; row < shape.shape.length; row++) {
                 for (let col = 0; col < shape.shape[row].length; col++) {
@@ -463,6 +558,7 @@
                         const newX = shape.x + col + offsetX;
                         const newY = shape.y + row + offsetY;
 
+                        // Check boundaries and collision
                         if (newX < 0 || newX >= COLUMNS || newY >= ROWS || (board[newY] && board[newY][newX])) {
                             return false;
                         }
@@ -472,7 +568,7 @@
             return true;
         }
 
-        // Funksiya: Fiquru oyun lövhəsinə birləşdirir
+        // Function: Merges the shape onto the board
         function mergeShape() {
             currentShape.shape.forEach((row, rowIndex) => {
                 row.forEach((value, colIndex) => {
@@ -484,84 +580,96 @@
             holdUsed = false;
         }
 
-        // Funksiya: Tam dolu sətirləri yoxlayır və silir
+        // Function: Checks and clears complete lines
         function checkLines() {
             let linesCleared = 0;
             for (let row = ROWS - 1; row >= 0; row--) {
                 if (board[row].every(cell => cell !== null)) {
+                    // Clear the line
                     board.splice(row, 1);
                     board.unshift(Array(COLUMNS).fill(null));
                     linesCleared++;
-                    row++;
+                    row++; // Re-check the same row index after shifting
                 }
             }
             if (linesCleared > 0) {
+                // Calculate score
                 score += linesCleared * 100 * level;
                 scoreElement.innerText = score;
                 checkLevelUp();
             }
         }
 
-        // Funksiya: Səviyyəni artırır
+        // Function: Increases level
         function checkLevelUp() {
             const newLevel = Math.floor(score / 500) + 1;
             if (newLevel > level) {
                 level = newLevel;
                 levelElement.innerText = level;
+                // Decrease drop interval for difficulty
                 dropInterval = Math.max(100, 1000 - (level - 1) * 75);
             }
         }
 
-        // Funksiya: Fiquru döndərir
+        // Function: Rotates the shape
         function rotateShape() {
+            // Transposition and row reversal
             const rotatedShape = currentShape.shape[0].map((val, index) =>
                 currentShape.shape.map(row => row[index]).reverse()
             );
             const originalShape = currentShape.shape;
             currentShape.shape = rotatedShape;
 
+            // Simple wall kick check
             if (!isValidMove(currentShape, 0, 0)) {
                 currentShape.shape = originalShape;
             }
         }
 
-        // Funksiya: Fiquru bir pillə aşağı salır
+        // Function: Drops the shape one step
         function drop() {
             if (isValidMove(currentShape, 0, 1)) {
                 currentShape.y++;
             } else {
+                // Lock the shape
                 mergeShape();
                 checkLines();
+                
+                // Create next shape
                 currentShape = nextShape;
                 nextShape = getRandomShape();
                 drawNextShape();
+                
+                // Check game over
                 if (!isValidMove(currentShape, 0, 0)) {
                     endGame();
                 }
             }
         }
 
-        // Funksiya: Hard drop
+        // Function: Hard drop
         function hardDrop() {
-            // Add shake effect
+            // Visual shake effect
             canvas.classList.add('game-canvas-shake');
             setTimeout(() => {
                 canvas.classList.remove('game-canvas-shake');
             }, 300);
 
+            // Drop until collision
             while (isValidMove(currentShape, 0, 1)) {
                 currentShape.y++;
             }
-            drop();
+            drop(); // Lock the piece immediately
         }
 
-        // Funksiya: Fiquru saxlamağa (hold) qoyur
+        // Function: Hold piece
         function holdPiece() {
             if (holdUsed) return;
             
             if (holdShape) {
                 const temp = currentShape;
                 currentShape = holdShape;
+                // Reset held piece position
                 currentShape.x = Math.floor(COLUMNS / 2) - Math.floor(currentShape.shape[0].length / 2);
                 currentShape.y = 0;
                 holdShape = temp;
@@ -575,16 +683,17 @@
             drawNextShape();
         }
 
-        // Funksiya: Oyunu sonlandırır
+        // Function: Ends the game
         function endGame() {
             gameOver = true;
+            // English messages
             messageTitle.innerText = "Game Over";
-            messageText.innerText = `Your Score: ${score}\nYour Level: ${level}`;
+            messageText.innerText = `Your Score: ${score}\nLevel: ${level}`;
             messageButton.innerText = "Restart";
             messageBox.classList.remove('hidden');
         }
 
-        // Funksiya: Oyunu sıfırlayır
+        // Function: Resets the game
         function resetGame() {
             board = Array.from({ length: ROWS }, () => Array(COLUMNS).fill(null));
             score = 0;
@@ -605,7 +714,7 @@
             drawBoard();
         }
 
-        // Oyunun əsas dövrü
+        // Game loop
         function gameLoop(timestamp) {
             if (gameOver || paused) {
                 requestAnimationFrame(gameLoop);
@@ -624,7 +733,7 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Funksiya: Hərəkət logic-i
+        // Function: Handles movement
         function handleMove(e) {
             if (gameOver || paused) return;
             switch (e.key) {
@@ -639,6 +748,7 @@
                     }
                     break;
                 case 'ArrowDown':
+                    // Soft drop
                     drop();
                     break;
             }
@@ -646,7 +756,7 @@
             drawShape(currentShape, ctx);
         }
 
-        // Klaviaturadan idarə etmə
+        // Keyboard control
         document.addEventListener('keydown', (e) => {
             if (gameOver) return;
 
@@ -661,7 +771,7 @@
                     rotateShape();
                     break;
                 case ' ': // Space for hard drop
-                    e.preventDefault(); // Prevent space from scrolling the page
+                    e.preventDefault(); 
                     hardDrop();
                     break;
                 case 'Shift':
@@ -674,6 +784,7 @@
                 case 'ArrowLeft':
                 case 'ArrowRight':
                 case 'ArrowDown':
+                    // Key repeat for continuous movement
                     if (!repeatIntervalId) {
                         handleMove(e);
                         repeatTimeoutId = setTimeout(() => {
@@ -687,6 +798,7 @@
         });
         
         document.addEventListener('keyup', (e) => {
+            // Stop repeat when key is released
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                 clearTimeout(repeatTimeoutId);
                 clearInterval(repeatIntervalId);
@@ -695,7 +807,43 @@
             }
         });
 
-        // Funksiya: Oyunu başladıb-sıfırlayır
+        // Mobile control functionality
+        leftButton.addEventListener('click', () => {
+            if (gameOver || paused) return;
+            if (isValidMove(currentShape, -1, 0)) {
+                currentShape.x--;
+                drawBoard();
+                drawShape(currentShape, ctx);
+            }
+        });
+
+        rightButton.addEventListener('click', () => {
+            if (gameOver || paused) return;
+            if (isValidMove(currentShape, 1, 0)) {
+                currentShape.x++;
+                drawBoard();
+                drawShape(currentShape, ctx);
+            }
+        });
+        
+        rotateButton.addEventListener('click', () => {
+            if (gameOver || paused) return;
+            rotateShape();
+            drawBoard();
+            drawShape(currentShape, ctx);
+        });
+
+        downButton.addEventListener('click', () => {
+            if (gameOver || paused) return;
+            drop();
+        });
+
+        hardDropButton.addEventListener('click', () => {
+            if (gameOver || paused) return;
+            hardDrop();
+        });
+
+        // Function: Start or reset game
         function startOrResetGame() {
             messageBox.classList.add('hidden');
             if (gameOver) {
@@ -708,12 +856,13 @@
             }
         }
 
-        // Funksiya: Oyunu pauzaya qoyur
+        // Function: Pause/Resume game
         function togglePause() {
             if (gameOver) return;
             paused = !paused;
             if (paused) {
                 pauseButton.innerText = 'Resume';
+                // English messages
                 messageTitle.innerText = "Paused";
                 messageText.innerText = "The game is paused.";
                 messageButton.innerText = "Resume";
@@ -728,15 +877,20 @@
         startButton.addEventListener('click', startOrResetGame);
         pauseButton.addEventListener('click', togglePause);
         messageButton.addEventListener('click', () => {
+            // Check message title
             if (messageTitle.innerText === "Paused") {
                 togglePause();
             } else {
                 startOrResetGame();
             }
         });
+        
+        // --- Game size is fixed and centered, so no runtime resizing is needed. ---
 
         window.onload = async function() {
             await loadImages();
+            // Call resizeGame once to set the fixed dimensions (300px x 600px game board)
+            resizeGame(); 
             currentShape = getRandomShape();
             nextShape = getRandomShape();
             drawNextShape();
@@ -752,5 +906,3 @@
     </script>
 </body>
 </html>
-
-
