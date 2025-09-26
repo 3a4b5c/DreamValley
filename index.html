@@ -521,9 +521,8 @@
             const randomKey = shapeKeys[Math.floor(Math.random() * shapeKeys.length)];
             const newShape = shapes[randomKey];
 
-            // DÜZƏLİŞ: Fiqurların Kanvasın yuxarı kənarından (yəni görünməyən ərazidən)
+            // Fiqurların Kanvasın yuxarı kənarından (yəni görünməyən ərazidən)
             // gəlməsi üçün başlanğıc y pozisiyasını mənfi dəyərə (-6) təyin edin.
-            // Bu, fiqurun Kanvasın vizual kənarından bir qədər yuxarıda yaranmasını təmin edir.
             const startY = -6; 
             
             return {
@@ -582,6 +581,28 @@
             });
         }
 
+        // Function: Draws the ghost shape (shadow)
+        function drawGhostShape(shape, ghostY, context) {
+            // Kölgə üçün şəffaflığı (opacity) 0.3-ə təyin edin
+            context.globalAlpha = 0.3; 
+            
+            shape.shape.forEach((row, rowIndex) => {
+                row.forEach((value, colIndex) => {
+                    if (value) {
+                        const drawX = (shape.x + colIndex) * TILE_SIZE;
+                        // Kölgənin y mövqeyinə offset-i əlavə edirik
+                        const drawY = (ghostY + rowIndex + Y_OFFSET_ROWS) * TILE_SIZE; 
+                        
+                        // Kölgə üçün kölgə effekti tətbiq etmirik
+                        context.drawImage(loadedImages[shape.color], drawX, drawY, TILE_SIZE, TILE_SIZE);
+                    }
+                });
+            });
+
+            // Şəffaflığı 1.0-a sıfırlayın
+            context.globalAlpha = 1.0; 
+        }
+
         // Function: Draws the next shape
         function drawNextShape() {
             nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
@@ -621,14 +642,17 @@
         }
 
         // Function: Checks if a move is valid
-        function isValidMove(shape, offsetX, offsetY) {
+        // Əlavə parametr 'checkY' cari fiqurun yerinə başqa y mövqeyindən yoxlamağa imkan verir (Kölgə fiquru üçün vacibdir)
+        function isValidMove(shape, offsetX, offsetY, checkY = shape.y) {
             for (let row = 0; row < shape.shape.length; row++) {
                 for (let col = 0; col < shape.shape[row].length; col++) {
                     if (shape.shape[row][col]) {
                         const newX = shape.x + col + offsetX;
-                        const newY = shape.y + row + offsetY;
+                        // shape.y əvəzinə checkY istifadə edilir
+                        const newY = checkY + row + offsetY; 
 
                         // Check boundaries and collision
+                        // newY < 0 şərti silindi, çünki fiqurun mənfi y-də (spawn sahəsində) aşağı düşməsinə mane olurdu.
                         if (newX < 0 || newX >= COLUMNS || newY >= ROWS || (board[newY] && board[newY][newX])) {
                             return false;
                         }
@@ -636,6 +660,16 @@
                 }
             }
             return true;
+        }
+
+        // Function: Calculates the Y position of the ghost piece
+        function getGhostDropY() {
+            let ghostY = currentShape.y;
+            // Fixture y mövqeyindən başlayaraq, bir sətir aşağı (offsetY=1) hərəkətin mümkün olub olmadığını yoxlayın.
+            while (isValidMove(currentShape, 0, 1, ghostY)) {
+                ghostY++;
+            }
+            return ghostY;
         }
 
         // Function: Merges the shape onto the board
@@ -698,7 +732,8 @@
 
         // Function: Drops the shape one step
         function drop() {
-            if (isValidMove(currentShape, 0, 1)) {
+            // isValidMove-da default olaraq currentShape.y istifadə olunur, ona görə checkY vermirik
+            if (isValidMove(currentShape, 0, 1)) { 
                 currentShape.y++;
             } else {
                 // Lock the shape
@@ -726,9 +761,8 @@
             }, 300);
 
             // Drop until collision
-            while (isValidMove(currentShape, 0, 1)) {
-                currentShape.y++;
-            }
+            // getGhostDropY funksiyasından düşmə nöqtəsini əldə edin
+            currentShape.y = getGhostDropY();
             drop(); // Lock the piece immediately
         }
 
@@ -798,6 +832,12 @@
             }
 
             drawBoard();
+            
+            // 1. Kölgəni (Ghost) çəkmək
+            const ghostY = getGhostDropY();
+            drawGhostShape(currentShape, ghostY, ctx); 
+
+            // 2. Fiqurun özünü çəkmək
             drawShape(currentShape, ctx);
 
             requestAnimationFrame(gameLoop);
@@ -823,6 +863,9 @@
                     break;
             }
             drawBoard();
+            // Hərəkətdən sonra yenilənmə üçün ghost və fiquru yenidən çəkin
+            const ghostY = getGhostDropY();
+            drawGhostShape(currentShape, ghostY, ctx); 
             drawShape(currentShape, ctx);
         }
 
@@ -861,9 +904,12 @@
                             repeatIntervalId = setInterval(() => handleMove(e), REPEAT_INTERVAL);
                         }, REPEAT_DELAY);
                     }
-                    break;
+                    return; // Return immediately to avoid double drawing in switch block
             }
+            // Tək hərəkət və ya fırlanma üçün yenidən çəkmə
             drawBoard();
+            const ghostY = getGhostDropY();
+            drawGhostShape(currentShape, ghostY, ctx);
             drawShape(currentShape, ctx);
         });
         
@@ -877,12 +923,14 @@
             }
         });
 
-        // Mobile control functionality
+        // Mobile control functionality (update draw calls)
         leftButton.addEventListener('click', () => {
             if (gameOver || paused) return;
             if (isValidMove(currentShape, -1, 0)) {
                 currentShape.x--;
                 drawBoard();
+                const ghostY = getGhostDropY();
+                drawGhostShape(currentShape, ghostY, ctx);
                 drawShape(currentShape, ctx);
             }
         });
@@ -892,6 +940,8 @@
             if (isValidMove(currentShape, 1, 0)) {
                 currentShape.x++;
                 drawBoard();
+                const ghostY = getGhostDropY();
+                drawGhostShape(currentShape, ghostY, ctx);
                 drawShape(currentShape, ctx);
             }
         });
@@ -900,17 +950,25 @@
             if (gameOver || paused) return;
             rotateShape();
             drawBoard();
+            const ghostY = getGhostDropY();
+            drawGhostShape(currentShape, ghostY, ctx);
             drawShape(currentShape, ctx);
         });
 
         downButton.addEventListener('click', () => {
             if (gameOver || paused) return;
             drop();
+            // Drop funksiyası gameLoop-dan kənarda çağrılsa, özü draw-u yeniləyəcək
+            // Lakin hərəkət anındakı görüntünü yeniləmək üçün:
+            drawBoard();
+            const ghostY = getGhostDropY();
+            drawGhostShape(currentShape, ghostY, ctx);
+            drawShape(currentShape, ctx);
         });
 
         hardDropButton.addEventListener('click', () => {
             if (gameOver || paused) return;
-            hardDrop();
+            hardDrop(); // hardDrop özü drop-u çağırır və drop sonra merge edir, bu da yeni fiquru yaradır.
         });
 
         // Function: Start or reset game
